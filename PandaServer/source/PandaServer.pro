@@ -19,6 +19,7 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 SOURCES += \
     DatabaseManager.cpp \
+    PandaServerThread.cpp \
     PandaSocket.cpp \
     main.cpp \
     PandaServer.cpp
@@ -26,6 +27,7 @@ SOURCES += \
 HEADERS += \
     DatabaseManager.h \
     PandaServer.h \
+    PandaServerThread.h \
     PandaSocket.h
 
 FORMS += \

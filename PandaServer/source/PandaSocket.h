@@ -10,13 +10,14 @@ class PandaSocket : public QTcpSocket
 public:
     PandaSocket(qintptr socketDescriptor, QObject* parent = nullptr);
 signals:
-    void SignDisconnected(int);
+    void SignDisconnected(qintptr);
     void SignSendMsg(QString);
-    void SignReceiveData(QString, int);
 
-protected slots:
+public slots:
     void SlotReadData();
     void SlotDisconnected();
+    void SlotWriteData(QString);
+
 private:
     qintptr CurrentDescriptor;
 };

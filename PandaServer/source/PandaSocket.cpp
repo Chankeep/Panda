@@ -15,6 +15,11 @@ void PandaSocket::SlotReadData()
 
 void PandaSocket::SlotDisconnected()
 {
-    qDebug() << this->socketDescriptor() << "disconnected";
+    qDebug() << this->CurrentDescriptor << "disconnected";
     emit SignDisconnected(this->socketDescriptor());
+}
+
+void PandaSocket::SlotWriteData(QString msg)
+{
+    this->write(msg.toLatin1());
 }
