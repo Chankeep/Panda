@@ -10,7 +10,7 @@ PandaClient::PandaClient(QWidget *parent)
     TcpClient = new QTcpSocket(this);   //实例化tcpClient
     TcpClient->abort();                 //取消原有连接
     connect(TcpClient, SIGNAL(readyRead()), this, SLOT(SlotReadData()));
-
+    connect(ui->PushButton_Send,&QPushButton::clicked,this,&PandaClient::SlotSend);
 
     TcpClient->connectToHost("frp-bus.top", 37245);
     TcpClient->waitForConnected(3000);
