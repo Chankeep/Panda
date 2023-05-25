@@ -3,6 +3,8 @@
 
 #include <QMainWindow>
 
+#include <QTcpSocket>
+
 QT_BEGIN_NAMESPACE
 namespace Ui { class Panda; }
 QT_END_NAMESPACE
@@ -17,5 +19,7 @@ public:
 
 private:
     Ui::Panda *ui;
+
+
 };
 #endif // PANDA_H
