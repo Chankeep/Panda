@@ -1,7 +1,5 @@
 QT       += core gui
-QT       += network
-QT       += sql
-
+QT       +=network
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 CONFIG += c++11
@@ -19,18 +17,15 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 SOURCES += \
     main.cpp \
-    Panda.cpp
+    PandaClient.cpp
 
 HEADERS += \
-    Panda.h
+    PandaClient.h
 
 FORMS += \
-    Panda.ui
+    PandaClient.ui
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
-
-RESOURCES += \
-    icon.qrc
