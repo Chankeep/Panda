@@ -2,6 +2,7 @@
 #include "ui_PandaServer.h"
 
 #include <QDebug>
+#include <QStringListModel>
 
 PandaServer::PandaServer(QWidget *parent)
     : QTcpServer(parent),
@@ -10,8 +11,10 @@ PandaServer::PandaServer(QWidget *parent)
 {
     mainWindow = new QMainWindow();
     ui->setupUi(this->mainWindow);
-    connect(ui->ClientSendButton, &QPushButton::clicked, this, &PandaServer::SlotSendServerMsg);
+    ui->centralwidget->setSizeIncrement(mainWindow->sizeHint());
 
+    connect(ui->ClientSendButton, &QPushButton::clicked, this, &PandaServer::SlotSendServerMsg);
+    connect(this, &PandaServer::SignAddInfo, this, &PandaServer::SlotAddSocketInfo);
     dbManager.Init();
     InitThread();
 
@@ -22,6 +25,11 @@ PandaServer::PandaServer(QWidget *parent)
 
 PandaServer::~PandaServer()
 {
+    for(auto thread : threadList)
+    {
+        thread->quit();
+        thread->wait();
+    }
     delete ui;
 }
 
@@ -39,9 +47,9 @@ int PandaServer::GetMinLoadThreadIndex()
     int n = threadList.count();
     if(n == 0)
         return -1;
-    quint16 minLoad = threadList[0]->CurrentSocketNum;
-    quint8 index;
-    for(int i=0; i<n; n++)
+    quint16 minLoad = this->CurrentSocketNum;
+    int index = -1;
+    for(int i=0; i<n; i++)
     {
         if(threadList[i]->CurrentSocketNum < minLoad)
         {
@@ -54,26 +62,30 @@ int PandaServer::GetMinLoadThreadIndex()
 
 void PandaServer::InitThread()
 {
-    auto threadNum = ui->threadNumEdit->text().toInt() - 1;
+    auto threadNum = ui->threadNumEdit->text().toInt();
     for(int i=0; i<threadNum; i++)
     {
         PandaServerThread* newThread = new PandaServerThread(this);
         threadList.append(newThread);
         newThread->start();
+        qDebug() << "Create thread:" << newThread;
     }
 }
 
-void PandaServer::CreateSocket(qintptr socketDescriptor)
+void PandaServer::FlushSocketComboBox()
 {
-    PandaSocket* newSocket = new PandaSocket(socketDescriptor);
+    ui->comboBox->clear();
+    ui->comboBox->addItems(GetAllSocketInfo());
+}
 
-    connect(this, &PandaServer::SignSendMsg, newSocket, &PandaSocket::SlotWriteData);
-    connect(this, &PandaServer::SignDisconnected, newSocket, &PandaSocket::SlotDisconnected);
-
-    newSocket->setSocketDescriptor(socketDescriptor);
-    socketList.append(newSocket);
-
-    emit SignAddInfo("SB", socketDescriptor);
+QStringList PandaServer::GetAllSocketInfo()
+{
+    QStringList socketInfos;
+    for(auto info : socketInformations)
+    {
+        socketInfos.append(info.GetInfo());
+    }
+    return socketInfos;
 }
 
 void PandaServer::incomingConnection(qintptr socketDescriptor)
@@ -81,13 +93,37 @@ void PandaServer::incomingConnection(qintptr socketDescriptor)
     qDebug() << "new connection. descriptor: " << socketDescriptor;
 
     int index = GetMinLoadThreadIndex();
-    if(index == -1)//无子线程
+    if(index < 0)//主线程
     {
-        CreateSocket(socketDescriptor);
+        PandaSocket* newSocket = new PandaSocket(socketDescriptor);
+        qDebug() << "Create socket in mainThread"  << "\nThere is " << CurrentSocketNum << " sockets in current thread!";
+        this->CurrentSocketNum++;
+
+        connect(this, &PandaServer::SignSetDesc, newSocket, &PandaSocket::SlotSetDesc);
+        connect(this, &PandaServer::SignSendAllMsg, newSocket, &PandaSocket::SlotWriteData);
+        connect(this, &PandaServer::SignSockethasDisconnected, newSocket, &PandaSocket::SlotSocketDisconnected);
+        connect(newSocket, &PandaSocket::SignSendClientMsg, this, &PandaServer::SlotSendClinetMsg);
+        connect(newSocket, &PandaSocket::SignSocketDisconnected, this, &PandaServer::SlotServerDisconnected);
+
+        emit this->SignSetDesc(socketDescriptor);
+        emit SignAddInfo("Main", socketDescriptor);
+        socketList.append(newSocket);
     }
-    else
+    else//子线程
     {
-        threadList[index]->CreateSocket(socketDescriptor);
+        PandaSocket* newSocket = new PandaSocket(socketDescriptor);
+        newSocket->moveToThread(threadList[index]);
+        qDebug() << "Create socket in subThread"  << "\nThere is " << threadList[index]->CurrentSocketNum << " sockets in current thread!";
+        threadList[index]->CurrentSocketNum++;
+
+        connect(this, &PandaServer::SignSendAllMsg, newSocket, &PandaSocket::SlotWriteData);
+        connect(this, &PandaServer::SignSockethasDisconnected, newSocket, &PandaSocket::SlotSocketDisconnected);
+        connect(newSocket, &PandaSocket::SignSendClientMsg, this, &PandaServer::SlotSendClinetMsg);
+        connect(newSocket, &PandaSocket::SignSetDesc, newSocket, &PandaSocket::SlotSetDesc);
+
+        emit newSocket->SignSetDesc(socketDescriptor);
+        emit SignAddInfo("Sub", socketDescriptor);
+        threadList[index]->socketList.append(newSocket);
     }
 
 //    PandaSocket* socket = new PandaSocket(socketDescriptor);
@@ -102,13 +138,13 @@ void PandaServer::incomingConnection(qintptr socketDescriptor)
 
 void PandaServer::SlotAddSocketInfo(QString userName, qintptr socketDescriptor)
 {
-    socketInformations.append({socketDescriptor, userName});
+    static int index = 0;
+    SocketInformation info = {socketDescriptor, userName};
+    socketInformations[index++] = info;
+
+    FlushSocketComboBox();
 }
 
-void PandaServer::SlotSignUp()
-{
-
-}
 
 void PandaServer::SlotSendServerMsg()
 {
@@ -118,45 +154,45 @@ void PandaServer::SlotSendServerMsg()
 
     qDebug() << "send message!";
 
-    emit SignSendMsg(msg);
-    for(int i=0; i<socketList.count(); i++)
-    {
-        auto item = socketList.at(i);
-        if(item->write(msg.toLatin1()))
-        {
-            qDebug() << "send to socket:" << item->socketDescriptor();
-            continue;
-        }
-    }
+    emit SignSendAllMsg(msg);
+//    for(int i=0; i<socketList.count(); i++)
+//    {
+//        auto item = socketList.at(i);
+//        if(item->socket->write(msg.toLatin1()))
+//        {
+//            qDebug() << "send to socket:" << item->socket->socketDescriptor();
+//            continue;
+//        }
+//    }
 }
 
 void PandaServer::SlotSendClinetMsg(QString msg)
 {
 //    emit updateServer(msg, length);
-    emit SignSendMsg(msg);
+    emit SignSendAllMsg(msg);
 
-    ui->socketSended->append(msg);
-    for(int i=0; i<socketList.count(); i++)
-    {
-        auto item = socketList.at(i);
-        if(item->write(msg.toLatin1()))
-        {
-            continue;
-        }
-    }
+    ui->socketSended_2->append(msg);
+//    for(int i=0; i<socketList.count(); i++)
+//    {
+//        auto item = socketList.at(i);
+//        if(item->socket->write(msg.toLatin1()))
+//        {
+//            continue;
+//        }
+//    }
 }
 
-void PandaServer::SlotDisconnected(qintptr descriptor)
+void PandaServer::SlotServerDisconnected(qintptr descriptor)
 {
-    emit SignDisconnected(descriptor);
+    socketInformations.remove(descriptor);
+    FlushSocketComboBox();
     for(int i=0; i<socketList.count(); i++)
     {
         auto item = socketList.at(i);
-        if(item->socketDescriptor() == descriptor)
+        if(item->socket->socketDescriptor() == descriptor)
         {
             socketList.removeAt(i);
             return;
         }
     }
-    return;
 }

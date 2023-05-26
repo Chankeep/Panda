@@ -4,22 +4,27 @@
 #include <QObject>
 #include <QTcpSocket>
 
-class PandaSocket : public QTcpSocket
+class PandaSocket : public QObject
 {
     Q_OBJECT
 public:
-    PandaSocket(qintptr socketDescriptor, QObject* parent = nullptr);
+    PandaSocket(qintptr socketDescriptor);
+    qintptr CurrentDescriptor;
+
+    QTcpSocket* socket;
+
 signals:
-    void SignDisconnected(qintptr);
-    void SignSendMsg(QString);
+    void SignSocketDisconnected(qintptr);
+    void SignSendClientMsg(QString);
+    void SignSetDesc(qintptr);
 
 public slots:
-    void SlotReadData();
-    void SlotDisconnected();
+    void SlotReadClientData();
+    void SlotSocketDisconnected();
     void SlotWriteData(QString);
+    void SlotSetDesc(qintptr);
 
 private:
-    qintptr CurrentDescriptor;
 };
 
 #endif // PANDASOCKET_H

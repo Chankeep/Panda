@@ -1,25 +1,37 @@
 #include "PandaSocket.h"
+#include <QThread>
 
-
-PandaSocket::PandaSocket(qintptr socketDescriptor, QObject *parent) : QTcpSocket(parent), CurrentDescriptor(socketDescriptor)
+PandaSocket::PandaSocket(qintptr socketDescriptor) : CurrentDescriptor(socketDescriptor)
 {
-    connect(this, &QTcpSocket::readyRead, this, &PandaSocket::SlotReadData);
-    connect(this, &PandaSocket::disconnected, this, &PandaSocket::SlotDisconnected);
+    qRegisterMetaType<qintptr>("qintptr");
 }
 
-void PandaSocket::SlotReadData()
+void PandaSocket::SlotReadClientData()
 {
-    QString msg = this->readAll();
-    emit SignSendMsg(msg);
+    qDebug() << "read in thread: " << QThread::currentThreadId();
+    QString msg = socket->readAll();
+    emit SignSendClientMsg(msg);
 }
 
-void PandaSocket::SlotDisconnected()
+void PandaSocket::SlotSocketDisconnected()
 {
     qDebug() << this->CurrentDescriptor << "disconnected";
-    emit SignDisconnected(this->socketDescriptor());
+    emit SignSocketDisconnected(socket->socketDescriptor());
+    socket->abort();
+    delete socket;
 }
 
 void PandaSocket::SlotWriteData(QString msg)
 {
-    this->write(msg.toLatin1());
+    qDebug() << "write in thread: " << QThread::currentThreadId();
+    socket->write(msg.toLatin1());
+}
+
+void PandaSocket::SlotSetDesc(qintptr socketDescriptor)
+{
+    qDebug() << socketDescriptor << "init in " << QThread::currentThreadId();
+    socket = new QTcpSocket();
+    connect(socket, &QTcpSocket::readyRead, this, &PandaSocket::SlotReadClientData);
+    connect(socket, &QTcpSocket::disconnected, this, &PandaSocket::SlotSocketDisconnected);
+    socket->setSocketDescriptor(socketDescriptor);
 }

@@ -16,13 +16,12 @@ QT_END_NAMESPACE
 struct SocketInformation{
     qintptr socketDescriptor;
     QString userName;
-
+    SocketInformation() = default;
     SocketInformation(qintptr desc, const QString& name) : socketDescriptor(desc), userName(name){}
 
-    QString GetInformation()
+    QString GetInfo()
     {
-        QString msg = "UserName: "+ userName + "socket descriptor: " + QString::number(socketDescriptor);
-        return msg;
+        return "用户名： " + userName + "desc: " + socketDescriptor;
     }
 };
 
@@ -32,7 +31,7 @@ class PandaServer : public QTcpServer
 
 public:
     PandaServer(QWidget *parent = nullptr);
-    ~PandaServer();
+    virtual ~PandaServer() override;
     void show() { mainWindow->show(); }
     bool Check(const QString& account);
     void Login(const QString& account, const QString& password);
@@ -40,29 +39,34 @@ public:
 
     int GetMinLoadThreadIndex();
     void InitThread();
-    void CreateSocket(qintptr socketDescriptor);
+    void FlushSocketComboBox();
+    QStringList GetAllSocketInfo();
 protected:
     void incomingConnection(qintptr socketDescriptor) override;
 
 signals:
     void SignAddInfo(QString, int);
-    void SignSendMsg(QString);
-    void SignDisconnected(qintptr);
+    //send data to all PandaSocket
+    void SignSendAllMsg(QString);
+    void SignSockethasDisconnected(qintptr);
+    void SignCreateSocket(qintptr);
+    void SignSetDesc(qintptr);
 
 public slots:
     void SlotAddSocketInfo(QString, qintptr);
-    void SlotSignUp();
     void SlotSendServerMsg();
     void SlotSendClinetMsg(QString);
-    void SlotDisconnected(qintptr);
+    void SlotServerDisconnected(qintptr);
 
 private:
     QMainWindow* mainWindow;
     Ui::PandaServer *ui;
 
-    QList<SocketInformation> socketInformations;
+    QMap<qintptr, SocketInformation> socketInformations;
     QList<PandaServerThread*> threadList;
     QList<PandaSocket*> socketList;
     DatabaseManager& dbManager;
+
+    quint16 CurrentSocketNum = 0;
 };
 #endif // PANDASERVER_H
