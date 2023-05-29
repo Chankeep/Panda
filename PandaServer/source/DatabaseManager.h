@@ -15,11 +15,13 @@ public:
     }
 
     bool Init();
-    void Add(const QString& table, const QString& values);
+    bool Add(const QString& table, const QString& values);
     bool Find(const QString& table, const QString& name = "*", const QString& conditions = "");
-    void Delete(const QString& table, const QString& conditions = "");
-    void Update(const QString& table, const QString& before, const QString& after, const QString& conditions = "");
+    bool Delete(const QString& table, const QString& conditions = "");
+    bool Update(const QString& table, const QString &changes, const QString& conditions = "");
+    bool exec(const QString& query) { return DbQuery->exec(query); };
 
+    QSqlQuery* GetQuery() { return DbQuery; }
 private:
     DatabaseManager() = default;
     ~DatabaseManager() = default;

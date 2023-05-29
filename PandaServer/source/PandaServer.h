@@ -7,23 +7,28 @@
 #include <QCryptographicHash>
 
 #include "PandaServerThread.h"
-#include "DatabaseManager.h"
+#include "LoginManager.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class PandaServer; }
 QT_END_NAMESPACE
 
 struct SocketInformation{
+    PandaSocket* socket;
     qintptr socketDescriptor;
     QString userName;
+
     SocketInformation() = default;
-    SocketInformation(qintptr desc, const QString& name) : socketDescriptor(desc), userName(name){}
+    SocketInformation(PandaSocket* socket, qintptr desc, const QString& name)
+        : socket(socket), socketDescriptor(desc), userName(name){}
 
     QString GetInfo()
     {
-        return "用户名： " + userName + "desc: " + socketDescriptor;
+        return userName;
     }
 };
+
+class LoginManager;
 
 class PandaServer : public QTcpServer
 {
@@ -33,30 +38,36 @@ public:
     PandaServer(QWidget *parent = nullptr);
     virtual ~PandaServer() override;
     void show() { mainWindow->show(); }
-    bool Check(const QString& account);
     void Login(const QString& account, const QString& password);
     void SignUp(const QString& account, const QString& password);
 
-    int GetMinLoadThreadIndex();
     void InitThread();
+    int GetMinLoadThreadIndex();
+
     void FlushSocketComboBox();
     QStringList GetAllSocketInfo();
+
+    QMainWindow* GetMainWindow() { return mainWindow; }
 protected:
     void incomingConnection(qintptr socketDescriptor) override;
 
 signals:
-    void SignAddInfo(QString, int);
+    void SignAddInfo(PandaSocket*, QString, int);
     //send data to all PandaSocket
     void SignSendAllMsg(QString);
     void SignSockethasDisconnected(qintptr);
     void SignCreateSocket(qintptr);
     void SignSetDesc(qintptr);
 
+
 public slots:
-    void SlotAddSocketInfo(QString, qintptr);
+    void SlotAddSocketInfo(PandaSocket*, QString, qintptr);
     void SlotSendServerMsg();
     void SlotSendClinetMsg(QString);
     void SlotServerDisconnected(qintptr);
+
+    void SlotLogin(qintptr, QString, QString);
+    void SlotSignUp(qintptr, QString, QString, QString);
 
 private:
     QMainWindow* mainWindow;
@@ -65,7 +76,7 @@ private:
     QMap<qintptr, SocketInformation> socketInformations;
     QList<PandaServerThread*> threadList;
     QList<PandaSocket*> socketList;
-    DatabaseManager& dbManager;
+    LoginManager* loginManager;
 
     quint16 CurrentSocketNum = 0;
 };

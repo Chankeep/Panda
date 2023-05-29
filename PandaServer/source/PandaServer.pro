@@ -21,6 +21,7 @@ SOURCES += \
     DatabaseManager.cpp \
     PandaServerThread.cpp \
     PandaSocket.cpp \
+    LoginManager.cpp \
     main.cpp \
     PandaServer.cpp
 
@@ -28,7 +29,8 @@ HEADERS += \
     DatabaseManager.h \
     PandaServer.h \
     PandaServerThread.h \
-    PandaSocket.h
+    PandaSocket.h \
+    LoginManager.h
 
 FORMS += \
     PandaServer.ui

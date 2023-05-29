@@ -12,7 +12,7 @@ PandaClient::PandaClient(QWidget *parent)
     connect(TcpClient, SIGNAL(readyRead()), this, SLOT(SlotReadData()));
     connect(ui->PushButton_Send, &QPushButton::clicked, this, &PandaClient::SlotSend);
 
-    TcpClient->connectToHost("frp-bus.top", 37245);
+    TcpClient->connectToHost("frp-car.top", 37330);
     TcpClient->waitForConnected(3000);
     if (TcpClient->state() == QAbstractSocket::UnconnectedState)
     {
@@ -45,8 +45,8 @@ void PandaClient::SlotSend()
 {
     qDebug()<<"fasong";
     QString data = ui->TextEdit_Send->toPlainText();
-        if(data != "")
-        {
-            TcpClient->write(data.toLatin1()); //qt5去除了.toAscii()
-        }
+    if(data != "")
+    {
+        TcpClient->write(data.toLatin1()); //qt5去除了.toAscii()
+    }
 }

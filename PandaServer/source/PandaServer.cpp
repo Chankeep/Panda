@@ -6,16 +6,16 @@
 
 PandaServer::PandaServer(QWidget *parent)
     : QTcpServer(parent),
-    ui(new Ui::PandaServer),
-    dbManager(DatabaseManager::GetManager())
+    ui(new Ui::PandaServer)
 {
     mainWindow = new QMainWindow();
     ui->setupUi(this->mainWindow);
     ui->centralwidget->setSizeIncrement(mainWindow->sizeHint());
 
+    loginManager = new LoginManager(this);
+
     connect(ui->ClientSendButton, &QPushButton::clicked, this, &PandaServer::SlotSendServerMsg);
     connect(this, &PandaServer::SignAddInfo, this, &PandaServer::SlotAddSocketInfo);
-    dbManager.Init();
     InitThread();
 
     this->listen(QHostAddress::Any, 8080);
@@ -31,15 +31,6 @@ PandaServer::~PandaServer()
         thread->wait();
     }
     delete ui;
-}
-
-bool PandaServer::Check(const QString &account)
-{
-    if(dbManager.Find(account))
-    {
-        return true;
-    }
-    return false;
 }
 
 int PandaServer::GetMinLoadThreadIndex()
@@ -104,9 +95,11 @@ void PandaServer::incomingConnection(qintptr socketDescriptor)
         connect(this, &PandaServer::SignSockethasDisconnected, newSocket, &PandaSocket::SlotSocketDisconnected);
         connect(newSocket, &PandaSocket::SignSendClientMsg, this, &PandaServer::SlotSendClinetMsg);
         connect(newSocket, &PandaSocket::SignSocketDisconnected, this, &PandaServer::SlotServerDisconnected);
+        connect(newSocket, &PandaSocket::SignLogin, this, &PandaServer::SlotLogin);
+        connect(newSocket, &PandaSocket::SignalSignUp, this, &PandaServer::SlotSignUp);
 
         emit this->SignSetDesc(socketDescriptor);
-        emit SignAddInfo("Main", socketDescriptor);
+        emit SignAddInfo(newSocket, newSocket->socket->peerAddress().toString() + ":" + QString::number(newSocket->socket->peerPort()), socketDescriptor);
         socketList.append(newSocket);
     }
     else//子线程
@@ -120,9 +113,12 @@ void PandaServer::incomingConnection(qintptr socketDescriptor)
         connect(this, &PandaServer::SignSockethasDisconnected, newSocket, &PandaSocket::SlotSocketDisconnected);
         connect(newSocket, &PandaSocket::SignSendClientMsg, this, &PandaServer::SlotSendClinetMsg);
         connect(newSocket, &PandaSocket::SignSetDesc, newSocket, &PandaSocket::SlotSetDesc);
+        connect(newSocket, &PandaSocket::SignAddInfo, this, &PandaServer::SlotAddSocketInfo);
+        connect(newSocket, &PandaSocket::SignLogin, this, &PandaServer::SlotLogin);
+        connect(newSocket, &PandaSocket::SignalSignUp, this, &PandaServer::SlotSignUp);
 
         emit newSocket->SignSetDesc(socketDescriptor);
-        emit SignAddInfo("Sub", socketDescriptor);
+//        emit SignAddInfo(newSocket, newSocket->socket->peerAddress().toString() + ":" + QString::number(newSocket->socket->peerPort()), socketDescriptor);
         threadList[index]->socketList.append(newSocket);
     }
 
@@ -136,11 +132,10 @@ void PandaServer::incomingConnection(qintptr socketDescriptor)
 
 }
 
-void PandaServer::SlotAddSocketInfo(QString userName, qintptr socketDescriptor)
+void PandaServer::SlotAddSocketInfo(PandaSocket* socket, QString userName, qintptr socketDescriptor)
 {
-    static int index = 0;
-    SocketInformation info = {socketDescriptor, userName};
-    socketInformations[index++] = info;
+    SocketInformation info = {socket, socketDescriptor, userName};
+    socketInformations[socketDescriptor] = info;
 
     FlushSocketComboBox();
 }
@@ -195,4 +190,34 @@ void PandaServer::SlotServerDisconnected(qintptr descriptor)
             return;
         }
     }
+}
+
+void PandaServer::SlotLogin(qintptr socketDescriptor, QString account, QString password)
+{
+    auto result = loginManager->Login(account, password);
+    if(result == loginReturnType::wrongPw)
+    {
+        emit socketInformations[socketDescriptor].socket->SignLoginReturn("1");
+    }
+    else if(result == loginReturnType::acNotExist)
+    {
+        emit socketInformations[socketDescriptor].socket->SignLoginReturn("2");
+    }
+    else
+        emit socketInformations[socketDescriptor].socket->SignLoginReturn("0");
+}
+
+void PandaServer::SlotSignUp(qintptr socketDescriptor,QString userName, QString account, QString password)
+{
+    auto result = loginManager->signUp(userName, account, password);
+    if(result == signUpReturnType::alreayExisted)
+    {
+        emit socketInformations[socketDescriptor].socket->SignalSignUpReturn("1");
+    }
+    else if(result == signUpReturnType::unknown)
+    {
+        emit socketInformations[socketDescriptor].socket->SignalSignUpReturn("2");
+    }
+    else
+        emit socketInformations[socketDescriptor].socket->SignalSignUpReturn("0");
 }
