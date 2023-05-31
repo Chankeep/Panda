@@ -16,15 +16,24 @@ QT_END_NAMESPACE
 struct SocketInformation{
     PandaSocket* socket;
     qintptr socketDescriptor;
+    QString ip;
+    QString port;
     QString userName;
 
     SocketInformation() = default;
-    SocketInformation(PandaSocket* socket, qintptr desc, const QString& name)
-        : socket(socket), socketDescriptor(desc), userName(name){}
-
-    QString GetInfo()
+    SocketInformation(PandaSocket* socket, qintptr desc, const QString& msg)
+        : socket(socket), socketDescriptor(desc)
     {
-        return userName;
+        static int index = 0;
+        userName = "Null" + QString::number(index++);
+        auto addrAndPort = msg.split(":");
+        ip = addrAndPort[0];
+        port = addrAndPort[1];
+    }
+
+    void SetUserName(const QString& userName)
+    {
+        this->userName = userName;
     }
 };
 
@@ -41,10 +50,11 @@ public:
     void Login(const QString& account, const QString& password);
     void SignUp(const QString& account, const QString& password);
 
-    void InitThread();
+    void CreateThread();
+    void DeleteThread();
     int GetMinLoadThreadIndex();
 
-    void FlushSocketComboBox();
+    void FlushSocketInfo();
     QStringList GetAllSocketInfo();
 
     QMainWindow* GetMainWindow() { return mainWindow; }
@@ -55,16 +65,26 @@ signals:
     void SignAddInfo(PandaSocket*, QString, int);
     //send data to all PandaSocket
     void SignSendAllMsg(QString);
-    void SignSockethasDisconnected(qintptr);
+//    void SignSocketHasDisconnected(qintptr);
     void SignCreateSocket(qintptr);
     void SignSetDesc(qintptr);
 
+    void SignForceDisconnect(qintptr);
 
 public slots:
+
+    void SlotConnectDatabase();
+    void SlotBeginListen();
+
+    void SlotCreateThread();
+    void SlotDeleteThread();
+
+    void SlotChangeSocketInfo(QString);
     void SlotAddSocketInfo(PandaSocket*, QString, qintptr);
     void SlotSendServerMsg();
     void SlotSendClinetMsg(QString);
-    void SlotServerDisconnected(qintptr);
+    void SlotServerDisconnected(qintptr, QThread*);
+    void SlotForceDisconnect();
 
     void SlotLogin(qintptr, QString, QString);
     void SlotSignUp(qintptr, QString, QString, QString);

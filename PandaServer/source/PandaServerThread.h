@@ -18,11 +18,8 @@ public:
 protected:
     void run() override;
 
-public slots:
-    void SlotSocketHasDisconnected(qintptr);
 public:
     PandaServer* server;
-    QList<PandaSocket*> socketList;
 };
 
 #endif // PANDASERVERTHREAD_H

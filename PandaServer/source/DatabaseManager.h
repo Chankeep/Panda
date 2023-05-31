@@ -4,6 +4,7 @@
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QSqlDatabase>
+#include <QHostAddress>
 
 class DatabaseManager
 {
@@ -14,7 +15,7 @@ public:
         return instance;
     }
 
-    bool Init();
+    bool Init(const QString&, uint);
     bool Add(const QString& table, const QString& values);
     bool Find(const QString& table, const QString& name = "*", const QString& conditions = "");
     bool Delete(const QString& table, const QString& conditions = "");

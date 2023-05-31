@@ -9,12 +9,14 @@ class PandaSocket : public QObject
     Q_OBJECT
 public:
     PandaSocket(qintptr socketDescriptor);
+    ~PandaSocket();
     qintptr CurrentDescriptor;
 
     QTcpSocket* socket;
 
 signals:
-    void SignSocketDisconnected(qintptr);
+    void SignForceDisconnect();
+    void SignSocketDisconnected(qintptr, QThread*);
     void SignSendClientMsg(QString);
     void SignSetDesc(qintptr);
     void SignAddInfo(PandaSocket*, QString, qintptr);
@@ -32,7 +34,7 @@ public slots:
     void SlotSetDesc(qintptr);
 
     void SlotReturnInfo(QString);
-
+    void SlotForceDisconnect();
 private:
 };
 

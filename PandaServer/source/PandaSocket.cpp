@@ -6,16 +6,19 @@ PandaSocket::PandaSocket(qintptr socketDescriptor) : CurrentDescriptor(socketDes
     qRegisterMetaType<qintptr>("qintptr");
 }
 
+PandaSocket::~PandaSocket()
+{
+    qDebug() << "PandaSocket who controled " << this->CurrentDescriptor << " has been delete";
+}
+
 void PandaSocket::SlotReadClientData()
 {
     qDebug() << "read in thread: " << QThread::currentThreadId();
     QString msg = socket->readAll();
 
-    qDebug() << msg[0];
     if(msg[0] == '0')
     {
         auto loginInfo = msg.split(" ");
-        qDebug() << loginInfo;
         emit SignLogin(socket->socketDescriptor(), loginInfo[1], loginInfo[2]);
     }
     else if(msg[0] == '1')
@@ -23,15 +26,23 @@ void PandaSocket::SlotReadClientData()
         auto signUpInfo = msg.split(" ");
         emit SignalSignUp(socket->socketDescriptor(), signUpInfo[1], signUpInfo[2], signUpInfo[3]);
     }
-    emit SignSendClientMsg(msg);
+    else if(msg[0] == 's')
+    {
+        emit SignSendClientMsg(msg);
+    }
+    else
+        return;
+
 }
 
 void PandaSocket::SlotSocketDisconnected()
 {
-    qDebug() << this->CurrentDescriptor << "disconnected";
-    emit SignSocketDisconnected(socket->socketDescriptor());
     socket->abort();
+    socket->close();
+    emit SignSocketDisconnected(this->CurrentDescriptor, QThread::currentThread());
+    qDebug() << this->CurrentDescriptor << "disconnected";
     delete socket;
+    this->deleteLater();
 }
 
 void PandaSocket::SlotWriteData(QString msg)
@@ -46,12 +57,12 @@ void PandaSocket::SlotSetDesc(qintptr socketDescriptor)
     socket = new QTcpSocket();
     connect(socket, &QTcpSocket::readyRead, this, &PandaSocket::SlotReadClientData);
     connect(socket, &QTcpSocket::disconnected, this, &PandaSocket::SlotSocketDisconnected);
+    connect(this, &PandaSocket::SignForceDisconnect, this, &PandaSocket::SlotForceDisconnect, Qt::ConnectionType::AutoConnection);
 
     connect(this, &PandaSocket::SignLoginReturn, this, &PandaSocket::SlotReturnInfo);
     connect(this, &PandaSocket::SignalSignUpReturn, this, &PandaSocket::SlotReturnInfo);
 
     socket->setSocketDescriptor(socketDescriptor);
-    qDebug()<< socket->peerAddress().toString() + ":" + QString::number(socket->peerPort());
     emit SignAddInfo(this, socket->peerAddress().toString() + ":" + QString::number(socket->peerPort()), socketDescriptor);
 }
 
@@ -59,4 +70,11 @@ void PandaSocket::SlotReturnInfo(QString msg)
 {
     qDebug() << "Return: " + msg;
     socket->write(msg.toUtf8());
+}
+
+void PandaSocket::SlotForceDisconnect()
+{
+    socket->write("-");
+    this->socket->disconnectFromHost();
+    this->socket->waitForDisconnected();
 }

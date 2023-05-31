@@ -24,12 +24,15 @@ public:
     LoginManager(QObject* parent = nullptr);
 
     loginReturnType Login(const QString& account, const QString& password);
-    signUpReturnType signUp(const QString& userName, const QString& account, const QString& password);
+    signUpReturnType SignUp(const QString& userName, const QString& account, const QString& password);
+    bool ConnectDatabase(const QString&, uint);
+    QString GetUserName();
 private:
     DatabaseManager& DbManager;
     PandaServer* server;
 
     QSqlQuery* DbQuery;
+
 };
 
 #endif // LOGINMANAGER_H

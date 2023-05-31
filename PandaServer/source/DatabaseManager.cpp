@@ -2,12 +2,13 @@
 
 #include <QDebug>
 
-bool DatabaseManager::Init()
+bool DatabaseManager::Init(const QString& ip, uint port)
 {
+    qDebug()<<ip;
     QSqlDatabase Db;
     Db = QSqlDatabase::addDatabase("QMYSQL");
-    Db.setPort(52639);
-    Db.setHostName("frp-egg.top");
+    Db.setPort(port);
+    Db.setHostName(ip);
     Db.setDatabaseName("PandaDatabase");
     Db.setUserName("root");
     Db.setPassword("ckp20021209");
