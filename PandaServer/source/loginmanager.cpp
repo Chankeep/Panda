@@ -14,7 +14,9 @@ loginReturnType LoginManager::Login(const QString &account, const QString &passw
     if(!DbManager.Find("userinformation", "username, password", QString("account = \"%1\"").arg(account)))
         return loginReturnType::acNotExist;
 
+    userNames[account] = DbQuery->value(0).toString();
     QString truePassword = DbQuery->value(1).toString();
+
     if(password != truePassword)
         return loginReturnType::wrongPw;
 
@@ -46,8 +48,8 @@ bool LoginManager::ConnectDatabase(const QString& ip, uint port)
     }
 }
 
-QString LoginManager::GetUserName()
+QString LoginManager::GetUserName(QString account)
 {
-    QString userName = DbQuery->value(0).toString();
+    QString userName = userNames[account];
     return userName;
 }

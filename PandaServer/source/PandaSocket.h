@@ -17,7 +17,6 @@ public:
 signals:
     void SignForceDisconnect();
     void SignSocketDisconnected(qintptr, QThread*);
-    void SignSendClientMsg(QString);
     void SignSetDesc(qintptr);
     void SignAddInfo(PandaSocket*, QString, qintptr);
 
@@ -26,6 +25,8 @@ signals:
 
     void SignLogin(qintptr, QString, QString);
     void SignalSignUp(qintptr, QString, QString, QString);
+
+    void SignSendPublicMsg(QString);
 
 public slots:
     void SlotReadClientData();

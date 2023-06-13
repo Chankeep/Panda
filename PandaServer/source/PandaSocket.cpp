@@ -26,9 +26,9 @@ void PandaSocket::SlotReadClientData()
         auto signUpInfo = msg.split(" ");
         emit SignalSignUp(socket->socketDescriptor(), signUpInfo[1], signUpInfo[2], signUpInfo[3]);
     }
-    else if(msg[0] == 's')
+    else if(msg[0] == 's' || msg[0] == 'S')
     {
-        emit SignSendClientMsg(msg);
+        emit SignSendPublicMsg(msg);
     }
     else
         return;
@@ -37,6 +37,7 @@ void PandaSocket::SlotReadClientData()
 
 void PandaSocket::SlotSocketDisconnected()
 {
+    socket->write("- You have been disconnected!");
     socket->abort();
     socket->close();
     emit SignSocketDisconnected(this->CurrentDescriptor, QThread::currentThread());
@@ -74,7 +75,7 @@ void PandaSocket::SlotReturnInfo(QString msg)
 
 void PandaSocket::SlotForceDisconnect()
 {
-    socket->write("-");
+    socket->write("- You have been forcibly disconnected from the server!");
     this->socket->disconnectFromHost();
     this->socket->waitForDisconnected();
 }

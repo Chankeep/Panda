@@ -286,7 +286,7 @@
      <item row="0" column="0">
       <layout class="QVBoxLayout" name="verticalLayout_3">
        <item>
-        <widget class="QTextEdit" name="socketSended_2"/>
+        <widget class="QTextEdit" name="logTextEdit"/>
        </item>
        <item>
         <layout class="QVBoxLayout" name="verticalLayout_2">

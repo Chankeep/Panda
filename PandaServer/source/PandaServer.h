@@ -19,6 +19,7 @@ struct SocketInformation{
     QString ip;
     QString port;
     QString userName;
+    QString account;
 
     SocketInformation() = default;
     SocketInformation(PandaSocket* socket, qintptr desc, const QString& msg)
@@ -34,6 +35,11 @@ struct SocketInformation{
     void SetUserName(const QString& userName)
     {
         this->userName = userName;
+    }
+
+    void SetAccount(const QString& account)
+    {
+        this->account = account;
     }
 };
 
@@ -52,10 +58,16 @@ public:
 
     void CreateThread();
     void DeleteThread();
+    void ForceDisconnec();
     int GetMinLoadThreadIndex();
 
     void FlushSocketInfo();
     QStringList GetAllSocketInfo();
+
+    void SendAllUserInfo();
+    QString GetAllUserInfo();
+
+    bool CheckLoginState(QString account, qintptr socketDescriptor);
 
     QMainWindow* GetMainWindow() { return mainWindow; }
 protected:
@@ -69,8 +81,6 @@ signals:
     void SignCreateSocket(qintptr);
     void SignSetDesc(qintptr);
 
-    void SignForceDisconnect(qintptr);
-
 public slots:
 
     void SlotConnectDatabase();
@@ -82,12 +92,13 @@ public slots:
     void SlotChangeSocketInfo(QString);
     void SlotAddSocketInfo(PandaSocket*, QString, qintptr);
     void SlotSendServerMsg();
-    void SlotSendClinetMsg(QString);
     void SlotServerDisconnected(qintptr, QThread*);
     void SlotForceDisconnect();
 
     void SlotLogin(qintptr, QString, QString);
     void SlotSignUp(qintptr, QString, QString, QString);
+
+    void SlotSendPublicMsg(QString);
 
 private:
     QMainWindow* mainWindow;

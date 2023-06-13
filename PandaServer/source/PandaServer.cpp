@@ -83,6 +83,8 @@ void PandaServer::FlushSocketInfo()
     if(list.empty())
     {
         ui->disconnectedButton->setEnabled(false);
+        ui->socketAddrLabel->clear();
+        ui->socketPortLabel->clear();
         return;
     }
     else
@@ -104,6 +106,36 @@ QStringList PandaServer::GetAllSocketInfo()
     return socketInfos;
 }
 
+void PandaServer::SendAllUserInfo()
+{
+    SlotSendPublicMsg(GetAllUserInfo());
+}
+
+QString PandaServer::GetAllUserInfo()
+{
+    QString userInfos = "u ";
+    for(auto user : socketInformations)
+    {
+        userInfos += user.userName + " " + user.account + " ";
+    }
+
+    return userInfos;
+}
+
+bool PandaServer::CheckLoginState(QString account, qintptr socketDescriptor)
+{
+    for(auto socket : socketInformations)
+    {
+        if(socket.account == account)
+        {
+            ui->logTextEdit->append(QString::number(socketDescriptor) + " try to login with " + account + " which has been logined");
+            emit socketInformations[socketDescriptor].socket->SignLoginReturn("3");
+            return true;
+        }
+    }
+    return false;
+}
+
 void PandaServer::incomingConnection(qintptr socketDescriptor)
 {
     qDebug() << "new connection. descriptor: " << socketDescriptor;
@@ -112,28 +144,23 @@ void PandaServer::incomingConnection(qintptr socketDescriptor)
     PandaSocket* newSocket = new PandaSocket(socketDescriptor);
     if(index < 0)//主线程
     {
-        qDebug() << "Create socket in mainThread"  << "\nThere is " << CurrentSocketNum << " sockets in current thread!";
         this->CurrentSocketNum++;
-
-        connect(newSocket, &PandaSocket::SignSocketDisconnected, this, &PandaServer::SlotServerDisconnected);
-//        emit newSocket->SignSetDesc(socketDescriptor);
+        qDebug() << "Create socket in subThread, current socket num: " << CurrentSocketNum << " sockets in current thread!";
     }
     else//子线程
     {
-        newSocket->moveToThread(threadList[index]);
-        qDebug() << "Create socket in subThread"  << "\nThere is " << threadList[index]->CurrentSocketNum << " sockets in current thread!";
         threadList[index]->CurrentSocketNum++;
-
-        connect(newSocket, &PandaSocket::SignSocketDisconnected, this, &PandaServer::SlotServerDisconnected);
-
+        newSocket->moveToThread(threadList[index]);
+        qDebug() << "Create socket in subThread, current socket num: " << threadList[index]->CurrentSocketNum << " sockets in current thread!";
     }
+
+    connect(newSocket, &PandaSocket::SignSetDesc, newSocket, &PandaSocket::SlotSetDesc);
+    connect(newSocket, &PandaSocket::SignSocketDisconnected, this, &PandaServer::SlotServerDisconnected);
     connect(newSocket, &PandaSocket::SignLogin, this, &PandaServer::SlotLogin, Qt::ConnectionType::QueuedConnection);
     connect(newSocket, &PandaSocket::SignalSignUp, this, &PandaServer::SlotSignUp, Qt::ConnectionType::QueuedConnection);
     connect(this, &PandaServer::SignSendAllMsg, newSocket, &PandaSocket::SlotWriteData, Qt::ConnectionType::QueuedConnection);
     connect(newSocket, &PandaSocket::SignAddInfo, this, &PandaServer::SlotAddSocketInfo, Qt::ConnectionType::QueuedConnection);
-    connect(newSocket, &PandaSocket::SignSendClientMsg, this, &PandaServer::SlotSendClinetMsg, Qt::ConnectionType::QueuedConnection);
-
-    connect(newSocket, &PandaSocket::SignSetDesc, newSocket, &PandaSocket::SlotSetDesc);
+    connect(newSocket, &PandaSocket::SignSendPublicMsg, this, &PandaServer::SlotSendPublicMsg, Qt::ConnectionType::QueuedConnection);
 
     emit newSocket->SignSetDesc(socketDescriptor);
     socketList.append(newSocket);
@@ -158,6 +185,7 @@ void PandaServer::SlotConnectDatabase()
     uint port = ui->dbPortEdit->text().toUInt();
     if(loginManager->ConnectDatabase(ip, port))
     {
+        ui->logTextEdit->append("Database connect success");
         ui->dbConnectButton->setEnabled(false);
         ui->dbAddrEdit->setEnabled(false);
         ui->dbPortEdit->setEnabled(false);
@@ -171,6 +199,7 @@ void PandaServer::SlotBeginListen()
     if(this->listen(QHostAddress(ip), port))
     {
         qDebug() << "listen begin!";
+        ui->logTextEdit->append("listen begin");
         ui->listenButton->setEnabled(false);
         ui->listenAddrEdit->setEnabled(false);
         ui->listenPortEdit->setEnabled(false);
@@ -180,6 +209,7 @@ void PandaServer::SlotBeginListen()
 void PandaServer::SlotCreateThread()
 {
     CreateThread();
+    ui->logTextEdit->append("thread create success");
     ui->threadCreateButton->setEnabled(false);
     ui->threadDeleteButton->setEnabled(true);
 }
@@ -187,6 +217,7 @@ void PandaServer::SlotCreateThread()
 void PandaServer::SlotDeleteThread()
 {
     DeleteThread();
+    ui->logTextEdit->append("thread delete success");
     ui->threadCreateButton->setEnabled(true);
     ui->threadDeleteButton->setEnabled(false);
 }
@@ -217,17 +248,22 @@ void PandaServer::SlotSendServerMsg()
     QString msg = ui->serverSend->toPlainText();
     if(msg == "")
         return;
+
     msg = "v " + msg;
     qDebug() << "send message!" << msg;
 
     emit SignSendAllMsg(msg);
+
+    ui->serverSend->clear();
+    ui->logTextEdit->append("Server send: " + msg);
 }
 
-void PandaServer::SlotSendClinetMsg(QString msg)
+void PandaServer::SlotSendPublicMsg(QString msg)
 {
-    emit SignSendAllMsg(msg);
+    auto socket = static_cast<PandaSocket*>(sender());
 
-    ui->socketSended_2->append(msg);
+    ui->logTextEdit->append("(" + socketInformations[socket->CurrentDescriptor].userName + ")" + QString::number(socket->CurrentDescriptor)  + " send msg: " + msg);
+    emit SignSendAllMsg(msg);
 }
 
 void PandaServer::SlotServerDisconnected(qintptr descriptor, QThread* thread)
@@ -245,12 +281,16 @@ void PandaServer::SlotServerDisconnected(qintptr descriptor, QThread* thread)
             }
         }
     }
+    SendAllUserInfo();
     CurrentSocketNum--;
-
 }
 
 void PandaServer::SlotLogin(qintptr socketDescriptor, QString account, QString password)
 {
+    if(CheckLoginState(account, socketDescriptor))
+    {
+        return;
+    }
     auto result = loginManager->Login(account, password);
     if(result == loginReturnType::wrongPw)
     {
@@ -262,10 +302,19 @@ void PandaServer::SlotLogin(qintptr socketDescriptor, QString account, QString p
     }
     else
     {
-        QString userName = loginManager->GetUserName();
-        qDebug() << userName + " has been login!";
-        emit socketInformations[socketDescriptor].socket->SignLoginReturn("0");
+        QString userName = loginManager->GetUserName(account);
+        QString returnMsg = "0 " + userName;
+
+        QString appendMsg = QString::number(socketDescriptor) + QString(" login userName:%1").arg(userName);
+        ui->logTextEdit->append(appendMsg);
+
         socketInformations[socketDescriptor].SetUserName(userName);
+        socketInformations[socketDescriptor].SetAccount(account);
+
+        emit socketInformations[socketDescriptor].socket->SignLoginReturn(returnMsg);
+
+        SendAllUserInfo();
+
         FlushSocketInfo();
     }
 
@@ -276,12 +325,16 @@ void PandaServer::SlotSignUp(qintptr socketDescriptor,QString userName, QString 
     auto result = loginManager->SignUp(userName, account, password);
     if(result == signUpReturnType::alreayExisted)
     {
-        emit socketInformations[socketDescriptor].socket->SignalSignUpReturn("4");
+        emit socketInformations[socketDescriptor].socket->SignalSignUpReturn("5");
     }
     else if(result == signUpReturnType::unknown)
     {
-        emit socketInformations[socketDescriptor].socket->SignalSignUpReturn("5");
+        emit socketInformations[socketDescriptor].socket->SignalSignUpReturn("6");
     }
     else
-        emit socketInformations[socketDescriptor].socket->SignalSignUpReturn("3");
+    {
+        emit socketInformations[socketDescriptor].socket->SignalSignUpReturn("4");
+        QString appendMsg = QString::number(socketDescriptor) + QString(" sign up userName:%1").arg(userName);
+        ui->logTextEdit->append(appendMsg);
+    }
 }

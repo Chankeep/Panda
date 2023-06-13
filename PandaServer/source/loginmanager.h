@@ -26,13 +26,14 @@ public:
     loginReturnType Login(const QString& account, const QString& password);
     signUpReturnType SignUp(const QString& userName, const QString& account, const QString& password);
     bool ConnectDatabase(const QString&, uint);
-    QString GetUserName();
+    QString GetUserName(QString);
 private:
     DatabaseManager& DbManager;
     PandaServer* server;
 
     QSqlQuery* DbQuery;
 
+    QMap<QString, QString> userNames;
 };
 
 #endif // LOGINMANAGER_H
